@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>QR Code Generator By Afaq Ahmad</title>
+  <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+  
+  
+</head>
+<body>
+  <div class="container">
+    <h1 class="mt-5 mb-4">QR Code Generator</h1>
+    <form id="qrForm">
+      <div class="form-group">
+        <label for="qrContent">Content:</label>
+        <input type="text" class="form-control" id="qrContent" placeholder="Enter text or URL">
+      </div>
+      <div class="form-group">
+        <label for="dataType">Data Type:</label>
+        <select class="form-control" id="dataType">
+          <option value="url">URL</option>
+          <option value="text">Text</option>
+          <option value="contact">Contact Information</option>
+     
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="qrSize">Size:</label>
+        <input type="number" class="form-control" id="qrSize" value="200" min="50" max="500">
+      </div>
+      <div class="form-group">
+        <label for="qrColor">Color:</label>
+        <input type="color" class="form-control" id="qrColor" value="#000000">
+      </div>
+      <div class="form-group">
+        <label for="qrLogo">Upload Logo:</label>
+        <input type="file" class="form-control-file" id="qrLogo" accept="image/*">
+      </div>
+      <button type="submit" class="btn btn-primary">Generate QR Code</button>
+      <button type="button" class="btn btn-secondary" id="downloadBtn">Download All QR Codes as ZIP</button>
+    </form>
+    <div id="qrCodeContainer" class="mt-4"></div>
+  </div>
+  <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.3/dist/umd/popper.min.js"></script>
+  <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrious/4.0.2/qrious.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.6.0/jszip.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+  <script>
+    $(document).ready(function() {
+      var qrCodes = [];
+
+      $('#qrForm').submit(function(event) {
+        event.preventDefault();
+        var qrContent = $('#qrContent').val();
+        var dataType = $('#dataType').val();
+        var qrSize = parseInt($('#qrSize').val());
+        var qrColor = $('#qrColor').val();
+        var qrLogo = $('#qrLogo').prop('files')[0];
+
+        var qrValue = '';
+        switch(dataType) {
+          case 'url':
+            qrValue = qrContent.startsWith('http') ? qrContent : 'http://' + qrContent;
+            break;
+          case 'contact':
+            qrValue = 'BEGIN:VCARD\nVERSION:4.0\nFN:' + qrContent + '\nEND:VCARD';
+            break;
+          case 'text':
+          default:
+            qrValue = qrContent;
+            break;
+        }
+
+        if (qrContent) {
+          var qr = new QRious({
+            element: document.createElement('canvas'),
+            value: qrValue,
+            size: qrSize,
+            foreground: qrColor,
+            background: '#ffffff' 
+          });
+          if (qrLogo) {
+            var reader = new FileReader();
+            reader.onload = function(e) {
+              qr.backgroundImage = e.target.result;
+              qr.backgroundImageAlpha = 0.8; 
+              qr.backgroundImageSize = qrSize * 0.2; 
+              qr.backgroundImageX = (qrSize - qr.backgroundImageSize) / 2; 
+              qr.backgroundImageY = (qrSize - qr.backgroundImageSize) / 2; 
+              qr.refresh(); 
+            };
+            reader.readAsDataURL(qrLogo);
+          }
+
+          qrCodes.push(qr);
+          var qrCodeElement = document.createElement('div');
+          qrCodeElement.appendChild(qr.canvas);
+          document.getElementById('qrCodeContainer').appendChild(qrCodeElement);
+          sendAnalyticsData('QR Code Generated', qrValue);
+        }
+      });
+
+      $('#downloadBtn').click(function() {
+        if (qrCodes.length === 0) {
+          alert('No QR codes generated yet.');
+          return;
+        }
+
+        var zip = new JSZip();
+        qrCodes.forEach(function(qr, index) {
+          var canvas = qr.canvas;
+          canvas.toBlob(function(blob) {
+            zip.file('qr_code_' + index + '.png', blob);
+            if (index === qrCodes.length - 1) {
+              zip.generateAsync({type:"blob"}).then(function(content) {
+                saveAs(content, 'qr_codes.zip');
+              });
+            }
+          });
+        });
+        sendAnalyticsData('QR Codes ZIP Downloaded');
+      });
+      function sendAnalyticsData(eventName, eventData) {
+        var analyticsEndpoint = 'https://example.com/analytics';
+        
+        $.ajax({
+          url: analyticsEndpoint,
+          method: 'POST',
+          data: {
+            event: eventName,
+            data: eventData
+          },
+          success: function(response) {
+            console.log('Analytics data sent successfully.');
+          },
+          error: function(xhr, status, error) {
+            console.error('Error sending analytics data:', error);
+          }
+        });
+      }
+    });
+  </script>
+</body>
+</html>
